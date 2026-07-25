@@ -9,11 +9,11 @@ if (!defined('APP_LOADED')) {
     die('Direct access not permitted.');
 }
 
-// --- Database Configuration (VistaPanel / Byethost) ---
+// --- Database Configuration ---
 define('DB_HOST', '');
 define('DB_NAME', '');
 define('DB_USER', '');
-define('DB_PASS', '');  // Set to your vPanel password
+define('DB_PASS', '');
 define('DB_CHARSET', 'utf8mb4');
 
 // --- LLM Defaults (users supply their own keys) ---
@@ -28,7 +28,7 @@ define('LLM_TEMPERATURE', 0.7);
 define('ENCRYPTION_KEY', '');
 
 // --- Site Configuration ---
-define('SITE_NAME', 'VistaPanel AI Chat');
+define('SITE_NAME', 'PHP Chat Page');
 define('SITE_URL', '');  // Change to your actual URL
 define('TIMEZONE', 'Asia/Shanghai');
 

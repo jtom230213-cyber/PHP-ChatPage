@@ -1,6 +1,6 @@
-# PHP ChatGPT
+# PHP Chat Page
 
-PHP ChatGPT is a lightweight, self-hosted web chat application for PHP shared-hosting environments. It gives each registered user a private chat workspace and lets that user connect their own OpenAI-compatible LLM endpoint and API key.
+PHP Chat Page is a lightweight, self-hosted web chat application for PHP shared-hosting environments. It gives each registered user a private chat workspace and lets that user connect their own OpenAI-compatible LLM endpoint and API key.
 
 The project is intended for platforms that provide PHP, MySQL or MariaDB, cURL, and Apache-compatible hosting, including shared hosting control panels. It does not bundle a provider API key or database credentials.
 
@@ -94,65 +94,39 @@ The complete DDL is in [config/schema.sql](config/schema.sql). The normalized co
 
 Foreign keys use `ON DELETE CASCADE`, so deleting a user removes that user's conversations, messages, and stored provider credentials. Indexes support account lookup, user conversation listing, and ordered message retrieval.
 
-### MySQL/MariaDB Structure
+### Table Structure
 
-Create an empty database first, select it in your database client, then run the following structure. This is the same DDL maintained in [config/schema.sql](config/schema.sql).
+| Table | Primary key | Important fields | Relationships and indexes |
+| --- | --- | --- | --- |
+| `users` | `id` | `username`, `email`, `password_hash`, `display_name`, `is_admin`, login and audit timestamps | `username` and `email` are unique and indexed. One user can own many conversations and one API-key settings record. |
+| `conversations` | `id` | `user_id`, `title`, `system_prompt`, `model`, `is_archived`, audit timestamps | `user_id` references `users.id`. User and archive status are indexed for the chat list; `updated_at` is indexed for recency ordering. |
+| `messages` | `id` | `conversation_id`, `role`, `content`, `image_url`, `token_count`, `created_at` | `conversation_id` references `conversations.id`. Conversation and creation time are indexed to retrieve ordered message history. |
+| `user_api_keys` | `id` | `user_id`, `api_endpoint`, `api_key_encrypted`, `preferred_model`, `is_active`, audit timestamps | `user_id` references `users.id` and is unique, allowing one provider configuration per user. The provider key is stored only as encrypted data. |
 
-```sql
-CREATE TABLE IF NOT EXISTS users (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    username VARCHAR(50) NOT NULL UNIQUE,
-    email VARCHAR(255) NOT NULL UNIQUE,
-    password_hash VARCHAR(255) NOT NULL,
-    display_name VARCHAR(100) DEFAULT NULL,
-    avatar_url VARCHAR(500) DEFAULT NULL,
-    is_admin TINYINT(1) NOT NULL DEFAULT 0,
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    last_login DATETIME DEFAULT NULL,
-    INDEX idx_email (email),
-    INDEX idx_username (username)
-) ENGINE=InnoDB;
+### Database Workflow
 
-CREATE TABLE IF NOT EXISTS conversations (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL,
-    title VARCHAR(255) NOT NULL DEFAULT 'New Chat',
-    system_prompt TEXT DEFAULT NULL,
-    model VARCHAR(100) DEFAULT NULL,
-    is_archived TINYINT(1) NOT NULL DEFAULT 0,
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    INDEX idx_user_archived (user_id, is_archived),
-    INDEX idx_updated (updated_at DESC)
-) ENGINE=InnoDB;
-
-CREATE TABLE IF NOT EXISTS messages (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    conversation_id INT NOT NULL,
-    role ENUM('user', 'assistant', 'system') NOT NULL,
-    content LONGTEXT NOT NULL,
-    image_url VARCHAR(2000) DEFAULT NULL,
-    token_count INT DEFAULT NULL,
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
-    INDEX idx_conversation (conversation_id, created_at)
-) ENGINE=InnoDB;
-
-CREATE TABLE IF NOT EXISTS user_api_keys (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL UNIQUE,
-    api_endpoint VARCHAR(500) NOT NULL DEFAULT 'https://api.openai.com/v1/chat/completions',
-    api_key_encrypted TEXT NOT NULL,
-    preferred_model VARCHAR(100) DEFAULT 'gpt-4o',
-    is_active TINYINT(1) NOT NULL DEFAULT 1,
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    INDEX idx_user (user_id)
-) ENGINE=InnoDB;
+```mermaid
+flowchart TD
+    Register[Register or sign in] --> User[users]
+    User --> Settings[Save provider settings]
+    Settings --> Keys[user_api_keys]
+    User --> NewChat[Create a chat]
+    NewChat --> Conversation[conversations]
+    Conversation --> Send[Send a message]
+    Send --> UserMessage[messages: user]
+    Send --> Provider[LLM provider]
+    Provider --> AssistantMessage[messages: assistant]
+    User --> DeleteUser[Delete user]
+    DeleteUser --> Cascade[Delete related conversations, messages, and API settings]
 ```
+
+1. A registered account is stored in `users` with a bcrypt password hash.
+2. The account can save one active provider configuration in `user_api_keys`; the API key is encrypted before persistence.
+3. Each new chat creates a `conversations` record that belongs to the signed-in user.
+4. Sending a prompt stores a user `messages` record, sends the ordered conversation context to the provider, then saves the assistant response as another `messages` record.
+5. Ownership checks use the signed-in user ID on every conversation operation. Removing a user cascades to their conversations, messages, and provider settings.
+
+The installable SQL remains in [config/schema.sql](config/schema.sql).
 
 ## API Routes
 

@@ -1,4 +1,4 @@
--- phpChatGPT Database Schema
+-- PHP Chat Page Database Schema
 -- Import this file into an existing MySQL or MariaDB database.
 -- Run only the CREATE TABLE statements below.
 
