@@ -168,4 +168,4 @@ Use GitHub secret scanning and push protection on the remote repository as an ad
 
 ## License
 
-No license has been selected. Add an explicit license before distributing or accepting external contributions.
+GPL-3.0 license
