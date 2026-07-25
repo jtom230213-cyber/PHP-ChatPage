@@ -1,0 +1,17 @@
+# Environment-specific configuration and secrets
+.env
+.env.*
+!.env.example
+config/config.local.php
+
+# Runtime uploads: retain the directory, not user content
+uploads/*
+!uploads/.gitkeep
+
+# Local tooling and operating-system files
+.vscode/
+.idea/
+*.log
+*.cache
+Thumbs.db
+.DS_Store
